@@ -1,7 +1,11 @@
 {
   "name": "PingPalBot",
   "username": "PingPalAIBot",
-  "plugins": ["@elizaos/plugin-sql", "@elizaos/plugin-telegram"],
+  "plugins": [
+    "@elizaos/plugin-sql",
+    "@elizaos/plugin-telegram",
+    "@elizaos/plugin-pingpal-telegram"
+  ],
   "modelProvider": "openai",
   "settings": {
     "model": "gpt-4o-mini",

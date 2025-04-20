@@ -1,21 +1,7 @@
 import type { Plugin, IAgentRuntime } from "@elizaos/core";
-import {
-  type Action,
-  type Content,
-  type GenerateTextParams,
-  type HandlerCallback,
-  type Memory,
-  ModelType,
-  type Provider,
-  type ProviderResult,
-  Service,
-  type State,
-  logger,
-  EventType,
-} from "@elizaos/core";
-import { z } from "zod";
+import { logger, EventType } from "@elizaos/core";
 import { handleTelegramMessage } from "./handlers/messageHandler";
-
+import { z } from "zod";
 /**
  * Defines the configuration schema for a plugin, including the validation rules for the plugin name.
  *
@@ -49,11 +35,6 @@ const configSchema = z.object({
  * @property {Function} validate - Asynchronous function to validate the action.
  * @property {Function} handler - Asynchronous function to handle the action and generate a response.
  * @property {Object[]} examples - An array of example inputs and expected outputs for the action.
- */
-
-/**
- * Example Hello World Provider
- * This demonstrates the simplest possible provider implementation
  */
 
 const pingPalTelegramPlugin: Plugin = {

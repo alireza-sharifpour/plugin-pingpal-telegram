@@ -14,5 +14,7 @@ export async function handleTelegramMessage(
     `[PingPal] Received message: ${message.content?.text}`
   );
 
-  // Mention detection & processing logic will go here later
+  // Task 6: Mention detection logic will be implemented here in the next task
+  // Task 7: Duplicate check logic will be implemented here in a future task
+  // Task 8-10: Analysis and notification logic will be added in future tasks
 }

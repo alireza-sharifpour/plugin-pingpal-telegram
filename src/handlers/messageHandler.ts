@@ -1,4 +1,9 @@
-import type { IAgentRuntime, Memory, MessagePayload } from "@elizaos/core";
+import type {
+  IAgentRuntime,
+  Memory,
+  MessagePayload,
+  MemoryMetadata,
+} from "@elizaos/core";
 import { logger } from "@elizaos/core"; // Use Eliza's logger
 
 export async function handleTelegramMessage(
@@ -97,6 +102,9 @@ export async function handleTelegramMessage(
         { originalMessageId },
         "[PingPal] New mention detected. Proceeding to analysis."
       );
+
+      // Call the analysis function for new mentions
+      await performMentionAnalysis(runtime, message);
     } catch (dbError) {
       logger.error(
         { error: dbError, originalMessageId },
@@ -106,4 +114,18 @@ export async function handleTelegramMessage(
       return;
     }
   }
+}
+
+/**
+ * Performs analysis on a message that mentions the target user
+ * This function will interact with the LLM to determine importance
+ * and handle persistence logging
+ */
+async function performMentionAnalysis(
+  runtime: IAgentRuntime,
+  message: Memory
+): Promise<void> {
+  logger.info("[PingPal] Performing mention analysis...");
+
+  // Further implementation will be added in Task 9 (LLM Analysis) and Task 10 (DB Logging)
 }

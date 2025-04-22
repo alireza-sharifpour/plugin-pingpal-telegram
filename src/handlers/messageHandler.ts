@@ -14,7 +14,6 @@ export async function handleTelegramMessage(
     `[PingPal] Received message: ${message.content?.text}`
   );
 
-  // Task 6: Implement Mention Detection
   // Retrieve the configured target username from settings
   // const targetUsername = runtime.getSetting("pingpal.targetUsername");
   const targetUsername = "alireza7612";
@@ -47,7 +46,64 @@ export async function handleTelegramMessage(
       "[PingPal] Mention detected for target user."
     );
 
-    // Task 7: Duplicate check logic will be implemented here in a future task
-    // Task 8-10: Analysis and notification logic will be added in future tasks
+    // Get the original Telegram Message ID
+    // Using any to bypass TypeScript property check since we know this property exists in Telegram messages
+    const originalMessageId = (message.metadata as any)?.originalMessageId as
+      | string
+      | undefined;
+
+    console.log("originalMessageId", originalMessageId);
+
+    // Check if the originalMessageId exists
+    if (!originalMessageId) {
+      logger.warn("[PingPal] Could not find original Telegram message ID.");
+      return;
+    }
+
+    // Query the database to check if this message has already been processed
+    try {
+      // Use a type field to help with querying instead of relying on metadata.originalMessageId directly
+      const existing = await runtime.getMemories({
+        tableName: "pingpal_processed_mentions",
+
+        agentId: runtime.agentId, // Ensure we only check logs for this agent
+        roomId: message.roomId, // Scope check to the room
+        count: 1,
+      });
+
+      // Filter the results manually since we can't query directly on metadata fields
+      const isDuplicate =
+        existing &&
+        existing.some((mem) => {
+          // Use any type to bypass TypeScript property checks
+          const meta = mem.metadata as any;
+          return (
+            meta &&
+            meta.type === "pingpal_processed_mention" &&
+            meta.originalMessageId === originalMessageId
+          );
+        });
+
+      if (isDuplicate) {
+        logger.info(
+          { originalMessageId },
+          "[PingPal] Duplicate mention detected. Skipping processing."
+        );
+        return; // Stop processing if already handled
+      }
+
+      // If check passes (no duplicate found), log that this is a new mention
+      logger.info(
+        { originalMessageId },
+        "[PingPal] New mention detected. Proceeding to analysis."
+      );
+    } catch (dbError) {
+      logger.error(
+        { error: dbError, originalMessageId },
+        "[PingPal] Error checking for duplicate mentions."
+      );
+      // Stop on DB error for MVP
+      return;
+    }
   }
 }

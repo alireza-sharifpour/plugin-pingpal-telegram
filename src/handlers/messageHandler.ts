@@ -1,5 +1,5 @@
 import type { IAgentRuntime, Memory, MessagePayload } from "@elizaos/core";
-import { logger } from "@elizaos/core"; // Use Eliza's logger
+import { logger, ModelType, parseJSONObjectFromText } from "@elizaos/core"; // Use Eliza's logger, ADDED ModelType, parseJSONObjectFromText
 
 // Define performMentionAnalysis stub here
 // We'll pass the full message object to it.
@@ -19,11 +19,147 @@ async function performMentionAnalysis(
     "[PingPal] Performing mention analysis (using Eliza internal message ID)..."
   );
 
-  // --- IMPORTANT FOR (Database Logging) ---
-  // When implementing database logging, the 'pingpal_processed_mentions'
-  // memory MUST store the 'elizaMessageId' in a custom metadata field
-  // (e.g., metadata: { type: 'pingpal_processed_mention', processedElizaMessageId: elizaMessageId, ... }).
-  // The duplicate check in handleTelegramMessage relies on finding this custom field.
+  // --- Start: LLM Analysis Call ---
+
+  const messageText = message.content?.text || "";
+  const targetUsername =
+    runtime.getSetting("pingpal.targetUsername") || "alireza7612"; // Reuse logic from handler
+
+  // Optional: Enhance prompt with sender/group context
+  let senderName = "Unknown User";
+  try {
+    const senderEntity = await runtime.getEntityById(message.entityId);
+    console.log("senderEntity", senderEntity);
+    senderName =
+      senderEntity?.names[0] ||
+      senderEntity?.metadata?.telegram?.username ||
+      senderName;
+    console.log("senderName", senderName);
+  } catch (e) {
+    logger.warn(
+      { error: e },
+      "[PingPal] Could not fetch sender entity for prompt."
+    );
+  }
+
+  let groupName = "Unknown Group";
+  try {
+    const room = await runtime.getRoom(message.roomId);
+    groupName = room?.name || groupName;
+    console.log("groupName", groupName, room);
+  } catch (e) {
+    logger.warn(
+      { error: e },
+      "[PingPal] Could not fetch room entity for prompt."
+    );
+  }
+
+  // Construct the LLM prompt
+  const llmPrompt = `You are an assistant helping '${targetUsername}' filter Telegram group messages. Analyze the following message sent by '${senderName}' in the group '${groupName}'. Determine if this message requires '${targetUsername}'s urgent attention or action. Consider keywords like 'urgent', 'action needed', 'deadline', 'blocker', 'ping', 'help', direct questions to '${targetUsername}', or tasks assigned.
+
+Respond ONLY with a JSON object matching this schema:
+{
+  "type": "object",
+  "properties": {
+    "important": { "type": "boolean", "description": "True if the message requires urgent attention or action by ${targetUsername}, false otherwise." },
+    "reason": { "type": "string", "description": "A brief justification for the importance classification (1-2 sentences)." }
+  },
+  "required": ["important", "reason"]
+}
+
+Message Text:
+"${messageText}"`;
+
+  // Define the expected JSON output schema
+  const outputSchema = {
+    type: "object",
+    properties: {
+      important: {
+        type: "boolean",
+        description:
+          "Is this message important/actionable for the mentioned user?",
+      },
+      reason: {
+        type: "string",
+        description: "Brief explanation for importance classification.",
+      },
+    },
+    required: ["important", "reason"],
+  };
+
+  let analysisResult: { important: boolean; reason: string } | null = null;
+  try {
+    logger.debug(
+      { agentId: runtime.agentId, prompt: llmPrompt },
+      "[PingPal] Calling LLM for analysis..."
+    );
+    const rawResponse = await runtime.useModel(ModelType.OBJECT_LARGE, {
+      prompt: llmPrompt,
+      schema: outputSchema,
+    });
+
+    // OBJECT_LARGE should return the parsed object directly if successful
+    // Add checks for robustness
+    if (
+      typeof rawResponse === "object" &&
+      rawResponse !== null &&
+      typeof (rawResponse as any).important === "boolean" &&
+      typeof (rawResponse as any).reason === "string"
+    ) {
+      analysisResult = rawResponse as { important: boolean; reason: string };
+    } else if (typeof rawResponse === "string") {
+      // Fallback if it returned a string that might be JSON
+      logger.warn("[PingPal] LLM returned a string, attempting to parse JSON.");
+      const parsed = parseJSONObjectFromText(rawResponse);
+      // Explicitly check if the parsed object matches the expected structure
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        typeof parsed.important === "boolean" &&
+        typeof parsed.reason === "string"
+      ) {
+        analysisResult = parsed as { important: boolean; reason: string };
+      } else {
+        // If parsing fails or doesn't match, treat as an error case
+        throw new Error(
+          `Parsed JSON from string did not match expected format. Parsed: ${JSON.stringify(parsed)}`
+        );
+      }
+    }
+
+    // Final validation after parsing or direct assignment
+    if (
+      !analysisResult ||
+      typeof analysisResult.important === "undefined" ||
+      typeof analysisResult.reason === "undefined"
+    ) {
+      throw new Error(
+        `LLM response was not in the expected format. Raw response: ${JSON.stringify(rawResponse)}`
+      );
+    }
+
+    logger.info(
+      { analysisResult, agentId: runtime.agentId },
+      "[PingPal] LLM Analysis successful."
+    );
+  } catch (llmError) {
+    logger.error(
+      { error: llmError, agentId: runtime.agentId },
+      "[PingPal] LLM analysis failed."
+    );
+    // Default to not important on error to avoid spamming notifications
+    analysisResult = { important: false, reason: "LLM analysis failed." };
+  }
+
+  // Here we will use 'analysisResult' and 'elizaMessageId' to log the processed mention.
+  logger.debug(
+    { analysisResult, elizaMessageId },
+    "[PingPal] Analysis complete. Ready for (Logging)."
+  );
+
+  // Here we will check analysisResult.important and call notification logic if true
+  logger.debug({ analysisResult }, "[PingPal] Ready for (Notification Check).");
+  // --- End ---
 }
 
 export async function handleTelegramMessage(

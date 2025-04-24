@@ -1,4 +1,9 @@
-import type { IAgentRuntime, Memory, MessagePayload } from "@elizaos/core";
+import type {
+  IAgentRuntime,
+  Memory,
+  MessagePayload,
+  MemoryMetadata,
+} from "@elizaos/core";
 import { logger, ModelType, parseJSONObjectFromText } from "@elizaos/core"; // Use Eliza's logger, ADDED ModelType, parseJSONObjectFromText
 
 // Define performMentionAnalysis stub here
@@ -151,11 +156,65 @@ Message Text:
     analysisResult = { important: false, reason: "LLM analysis failed." };
   }
 
-  // Here we will use 'analysisResult' and 'elizaMessageId' to log the processed mention.
+  // --- End LLM Analysis Call ---
+
+  // --- Start: Log Processed Mention to Database ---
   logger.debug(
     { analysisResult, elizaMessageId },
-    "[PingPal] Analysis complete. Ready for (Logging)."
+    "[PingPal] Analysis complete. Logging processing status."
   );
+
+  const notifiedStatus = analysisResult?.important || false;
+
+  // Prepare the memory object for logging the processing status
+  const processedMentionMemory = {
+    entityId: runtime.agentId,
+    roomId: message.roomId,
+    agentId: runtime.agentId,
+    createdAt: Date.now(),
+    content: {
+      text: `[PingPal] Processed mention ${elizaMessageId}. Important: ${notifiedStatus}. Reason: ${analysisResult?.reason}`,
+    },
+    metadata: {
+      type: "pingpal_processed_mention",
+      processedElizaMessageId: elizaMessageId,
+      notified: notifiedStatus,
+      analysisReason: analysisResult?.reason,
+      originalSenderId: message.entityId,
+      originalTimestamp: message.createdAt,
+    } as MemoryMetadata,
+  };
+
+  try {
+    const newMemory = await runtime.createMemory(
+      processedMentionMemory as Memory,
+      "pingpal_processed_mentions"
+    );
+    console.log("newMemory", newMemory);
+    logger.info(
+      {
+        elizaMessageId,
+        notified: notifiedStatus,
+        agentId: runtime.agentId,
+        roomId: message.roomId,
+      },
+      "[PingPal] Logged processed mention status successfully."
+    );
+  } catch (dbError) {
+    logger.error(
+      {
+        error: dbError,
+        elizaMessageId,
+        agentId: runtime.agentId,
+        roomId: message.roomId,
+      },
+      "[PingPal] Failed to log processed mention status."
+    );
+    // Depending on requirements, we might want to stop here if logging fails,
+    // to prevent potential duplicate notifications later if the agent restarts.
+    // For now, we'll log the error and continue to the notification step if applicable.
+  }
+  // --- End: Log Processed Mention to Database ---
 
   // Here we will check analysisResult.important and call notification logic if true
   logger.debug({ analysisResult }, "[PingPal] Ready for (Notification Check).");
@@ -166,6 +225,7 @@ export async function handleTelegramMessage(
   payload: MessagePayload
 ): Promise<void> {
   const { runtime, message } = payload;
+
   logger.debug(
     {
       agentId: runtime.agentId,

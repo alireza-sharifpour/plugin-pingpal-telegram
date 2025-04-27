@@ -5,6 +5,7 @@ import type {
   MemoryMetadata,
 } from "@elizaos/core";
 import { logger, ModelType, parseJSONObjectFromText } from "@elizaos/core"; // Use Eliza's logger, ADDED ModelType, parseJSONObjectFromText
+import { sendPrivateNotification } from "./notificationHandler"; // Import the new function
 
 // Define performMentionAnalysis stub here
 // We'll pass the full message object to it.
@@ -98,7 +99,7 @@ Message Text:
       { agentId: runtime.agentId, prompt: llmPrompt },
       "[PingPal] Calling LLM for analysis..."
     );
-    const rawResponse = await runtime.useModel(ModelType.OBJECT_LARGE, {
+    const rawResponse = await runtime.useModel(ModelType.OBJECT_SMALL, {
       prompt: llmPrompt,
       schema: outputSchema,
     });
@@ -216,9 +217,32 @@ Message Text:
   }
   // --- End: Log Processed Mention to Database ---
 
-  // Here we will check analysisResult.important and call notification logic if true
-  logger.debug({ analysisResult }, "[PingPal] Ready for (Notification Check).");
-  // --- End ---
+  // Check if the analysis deemed the message important and trigger notification
+  logger.debug(
+    { analysisResult, elizaMessageId },
+    "[PingPal] Checking if notification is needed."
+  );
+  if (analysisResult && analysisResult.important === true) {
+    logger.info(
+      {
+        elizaMessageId,
+        agentId: runtime.agentId,
+        reason: analysisResult.reason,
+      },
+      "[PingPal] Important mention identified, triggering notification."
+    );
+    // Call the notification function, passing the original message and the reason
+    await sendPrivateNotification(runtime, message, analysisResult.reason);
+  } else {
+    logger.info(
+      {
+        elizaMessageId,
+        agentId: runtime.agentId,
+        important: analysisResult?.important,
+      },
+      "[PingPal] Mention processed, notification not required."
+    );
+  }
 }
 
 export async function handleTelegramMessage(

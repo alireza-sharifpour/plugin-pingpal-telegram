@@ -86,6 +86,7 @@ export async function sendPrivateNotification(
     }
 
     let groupName = "Unknown Group";
+    let telegramChannelUsername: string | null = null;
     let telegramChannelId: string | null = null;
     let roomNameFetchedFromDB = false;
 
@@ -128,6 +129,8 @@ export async function sendPrivateNotification(
           console.log("chatInfo", chatInfo);
           if (chatInfo && "title" in chatInfo && chatInfo.title) {
             groupName = escapeMarkdownV2(chatInfo.title);
+            telegramChannelUsername = chatInfo.username || null;
+            console.log("telegramChannelUsername", telegramChannelUsername);
             // Optional: Update the room in the database.
             // try {
             //   await runtime.updateRoom({ id: originalMessage.roomId, name: chatInfo.title });
@@ -159,7 +162,9 @@ export async function sendPrivateNotification(
     // 5. Format Notification Message (MarkdownV2) - Using colon for simplicity and reliability.
     const originalText = escapeMarkdownV2(originalMessage.content?.text || "");
     const escapedReason = escapeMarkdownV2(reason);
-    const notificationText = `*🔔 PingPal Alert: Important Mention*\n\n*From:* ${senderUsername}\n*Group:* ${groupName}\n\n*Reason:* ${escapedReason}\n\n*Original Message:*\n\`\`\`\n${originalText}\n\`\`\`\n`;
+
+    const telegramGroupLink = `https://t.me/${telegramChannelUsername}`;
+    const notificationText = `*🔔 PingPal Alert: Important Mention*\n\n*From:* ${senderUsername}\n*Group:* ${groupName}\n\n*Reason:* ${escapedReason}\n\n*Original Message:*\n\`\`\`\n${originalText}\n\`\`\`\n ${telegramChannelUsername ? `Here is the link to the group: ${telegramGroupLink}` : ""}`;
 
     // 6. Send Message
     logger.debug(

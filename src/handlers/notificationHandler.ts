@@ -1,22 +1,21 @@
-import type { IAgentRuntime, Memory, Service } from "@elizaos/core";
-
+import type { IAgentRuntime, Memory } from "@elizaos/core";
 import { logger } from "@elizaos/core";
-import {} from "@elizaos/plugin-telegram";
+
 /**
  * Escapes characters for Telegram MarkdownV2 format.
- * See: https://core.telegram.org/bots/api#markdownv2-style
+ * See: [Telegram Bot API - MarkdownV2 Style](https://core.telegram.org/bots/api#markdownv2-style)
  */
 function escapeMarkdownV2(text: string): string {
   // Escape characters: _ * [ ] ( ) ~ ` > # + - = | { } . !
   // Note: Characters must be escaped with a preceding '\'.
-  return text.replace(/([_*[\\]()~`>#+\\-=|{}.!])/g, "\\$1");
+  return text.replace(/([_*\[\]()~`>#+\-=|{}.!])/g, "\\$1");
 }
 
 /**
  * Sends a private notification message via Telegram.
  *
  * @param runtime - The agent runtime instance.
- * @param originalMessage - The original message memory object that triggered the notification.
+ * @param originalMessage - The original message Memory object that triggered the notification.
  * @param reason - The reason why the message was deemed important by the LLM.
  */
 export async function sendPrivateNotification(
@@ -24,7 +23,7 @@ export async function sendPrivateNotification(
   originalMessage: Memory,
   reason: string
 ): Promise<void> {
-  const elizaMessageId = originalMessage.id; // Use Eliza ID for consistent logging context
+  const elizaMessageId = originalMessage.id;
   logger.info(
     {
       agentId: runtime.agentId,
@@ -63,13 +62,12 @@ export async function sendPrivateNotification(
       return;
     }
 
-    // 3. Fetch Context (Sender Username, Group Name)
+    // 3. Fetch Context (Sender Username, Group Name, Channel ID)
     let senderUsername = "Unknown User";
     try {
       const senderEntity = await runtime.getEntityById(
         originalMessage.entityId
       );
-      // Prioritize known name, then Telegram username
       senderUsername = escapeMarkdownV2(
         senderEntity?.names[0] ||
           senderEntity?.metadata?.telegram?.username ||
@@ -84,32 +82,86 @@ export async function sendPrivateNotification(
         },
         "[PingPal] Could not fetch sender entity for notification."
       );
-      senderUsername = "_Unknown User_"; // Use markdown for placeholder
+      senderUsername = "_Unknown User_";
     }
 
     let groupName = "Unknown Group";
+    let telegramChannelId: string | null = null;
+    let roomNameFetchedFromDB = false;
+
     try {
       const room = await runtime.getRoom(originalMessage.roomId);
-      groupName = escapeMarkdownV2(room?.name || "Unknown Group");
+      console.log("RoomData1", room);
+      if (room) {
+        telegramChannelId = room.channelId || null; // Get channelId FROM the Room object
+
+        if (room.name) {
+          groupName = escapeMarkdownV2(room.name);
+          roomNameFetchedFromDB = true;
+        }
+      }
     } catch (e) {
       logger.warn(
-        {
-          error: e,
-          agentId: runtime.agentId,
-          originalElizaMessageId: elizaMessageId,
-        },
-        "[PingPal] Could not fetch room entity for notification."
+        { error: e, agentId: runtime.agentId, roomId: originalMessage.roomId },
+        "[PingPal] Could not fetch room entity for notification context."
       );
-      groupName = "_Unknown Group_"; // Use markdown for placeholder
+      groupName = "_Fetch Error_";
     }
 
-    // 4. Format Notification Message (MarkdownV2)
+    // 4. Dynamic Fetch Fallback (Name from Telegram API if not in DB)
+    if (
+      !roomNameFetchedFromDB &&
+      telegramChannelId &&
+      telegramService &&
+      (telegramService as any).bot?.telegram?.getChat
+    ) {
+      logger.info(
+        { channelId: telegramChannelId },
+        "[PingPal] Room name missing from DB, attempting direct fetch..."
+      );
+      try {
+        const chatIdNum = parseInt(telegramChannelId, 10);
+        if (!isNaN(chatIdNum)) {
+          const chatInfo = await (telegramService as any).bot.telegram.getChat(
+            chatIdNum
+          );
+          console.log("chatInfo", chatInfo);
+          if (chatInfo && "title" in chatInfo && chatInfo.title) {
+            groupName = escapeMarkdownV2(chatInfo.title);
+            // Optional: Update the room in the database.
+            // try {
+            //   await runtime.updateRoom({ id: originalMessage.roomId, name: chatInfo.title });
+            // } catch (updateError) {
+            //   logger.warn({error: updateError}, "[PingPal] Failed to update room name in DB after fetching.")
+            // }
+          } else {
+            logger.warn("[PingPal] Fetched chat info did not contain a title.");
+            groupName = "_Unknown Group_";
+          }
+        } else {
+          logger.warn(
+            { channelId: telegramChannelId },
+            "[PingPal] Room channelId is not a valid number."
+          );
+          groupName = "_Invalid ChannelID_";
+        }
+      } catch (fetchError) {
+        logger.warn(
+          { error: fetchError, channelId: telegramChannelId },
+          "[PingPal] Failed to fetch chat info directly from Telegram."
+        );
+        groupName = "_Fetch Failed_";
+      }
+    } else if (!roomNameFetchedFromDB) {
+      groupName = "_Unknown Group_"; // Fallback if no channelId or fetch fails
+    }
+
+    // 5. Format Notification Message (MarkdownV2) - Using colon for simplicity and reliability.
     const originalText = escapeMarkdownV2(originalMessage.content?.text || "");
     const escapedReason = escapeMarkdownV2(reason);
+    const notificationText = `*🔔 PingPal Alert: Important Mention*\n\n*From:* ${senderUsername}\n*Group:* ${groupName}\n\n*Reason:* ${escapedReason}\n\n*Original Message:*\n\`\`\`\n${originalText}\n\`\`\`\n`;
 
-    const notificationText = `*🔔 PingPal Alert \\(Important Mention\\)*\n\n*From:* ${senderUsername}\n*Group:* ${groupName}\n\n*Reason:* ${escapedReason}\n\n*Original Message:*\n\`\`\`\n${originalText}\n\`\`\`\n`; // --- Potential TODO: Add deeplink back to original message if possible/reliable ---
-
-    // 5. Send Message
+    // 6. Send Message
     logger.debug(
       {
         agentId: runtime.agentId,
@@ -120,19 +172,23 @@ export async function sendPrivateNotification(
       "[PingPal] Attempting to send notification via Telegram service."
     );
 
-    // await (telegramService as any).sendMessage(targetUserId, notificationText);
-
-    // Access the nested method. Still using 'as any' temporarily because types are missing.
     if (
       telegramService &&
       (telegramService as any).bot?.telegram?.sendMessage
     ) {
+      // Send as PLAIN TEXT - Simplest and most reliable.  Remove the `parse_mode`.
       await (telegramService as any).bot.telegram.sendMessage(
         targetUserId,
-        notificationText // Send the raw text
+        notificationText
+        // Remove: { parse_mode: "MarkdownV2" }
       );
+      //  Alternative (if you REALLY want MarkdownV2, use escaped parens and add parse_mode):
+      //  await (telegramService as any).bot.telegram.sendMessage(
+      //     targetUserId,
+      //     notificationText.replace(/\(Important Mention\)/g, "\\(Important Mention\\)"),
+      //     { parse_mode: "MarkdownV2" }
+      //   );
     } else {
-      // Log an error if the expected structure isn't found
       logger.error(
         {
           agentId: runtime.agentId,
@@ -142,7 +198,6 @@ export async function sendPrivateNotification(
         },
         "[PingPal] Could not find nested bot.telegram.sendMessage function on Telegram service instance."
       );
-      // Rethrow or handle the error appropriately
       throw new Error("Telegram service structure unexpected.");
     }
 
@@ -155,11 +210,11 @@ export async function sendPrivateNotification(
       "[PingPal] Private notification sent successfully."
     );
   } catch (sendError) {
-    console.log("Send Error", sendError);
+    console.error("Send Error", sendError); // Use console.error for actual errors
     logger.error({
       error: sendError,
       agentId: runtime.agentId,
-      targetUserId: runtime.getSetting("pingpal.targetUserId"), // Log target ID even on error
+      targetUserId: runtime.getSetting("pingpal.targetUserId"),
       originalElizaMessageId: elizaMessageId,
     });
   }

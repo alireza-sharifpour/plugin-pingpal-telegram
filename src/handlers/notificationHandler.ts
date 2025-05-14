@@ -50,7 +50,9 @@ export async function sendPrivateNotification(
     }
 
     // 2. Get Target User ID
-    const targetUserId = runtime.getSetting("pingpal.targetUserId") || 72849029;
+    const targetUserId =
+      runtime.getSetting("pingpal.targetUserId") ||
+      process.env.PINGPAL_TARGET_TELEGRAM_USERID;
     if (!targetUserId) {
       logger.error(
         {
@@ -219,7 +221,9 @@ export async function sendPrivateNotification(
     logger.error({
       error: sendError,
       agentId: runtime.agentId,
-      targetUserId: runtime.getSetting("pingpal.targetUserId"),
+      targetUserId:
+        runtime.getSetting("pingpal.targetUserId") ||
+        process.env.PINGPAL_TARGET_TELEGRAM_USERID,
       originalElizaMessageId: elizaMessageId,
     });
   }

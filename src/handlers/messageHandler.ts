@@ -29,7 +29,8 @@ async function performMentionAnalysis(
 
   const messageText = message.content?.text || "";
   const targetUsername =
-    runtime.getSetting("pingpal.targetUsername") || "alireza7612"; // Reuse logic from handler
+    runtime.getSetting("pingpal.targetUsername") ||
+    process.env.PINGPAL_TARGET_TELEGRAM_USERNAME; // Reuse logic from handler
 
   // Optional: Enhance prompt with sender/group context
   let senderName = "Unknown User";
@@ -262,7 +263,8 @@ export async function handleTelegramMessage(
   // Retrieve the configured target username from settings
   const targetUsernameSetting = runtime.getSetting("pingpal.targetUsername");
   // Using hardcoded value for now based on previous context
-  const targetUsername = targetUsernameSetting || "alireza7612";
+  const targetUsername =
+    targetUsernameSetting || process.env.PINGPAL_TARGET_TELEGRAM_USERNAME;
 
   logger.debug(
     {

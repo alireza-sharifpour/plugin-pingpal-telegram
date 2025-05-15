@@ -22,7 +22,7 @@ async function performMentionAnalysis(
       roomId: message.roomId,
       elizaMessageId: elizaMessageId, // Log the ID being used for analysis/persistence
     },
-    "[PingPal] Performing mention analysis (using Eliza internal message ID)..."
+    "[PingPal Telegram] Performing mention analysis (using Eliza internal message ID)..."
   );
 
   // --- Start: LLM Analysis Call ---
@@ -45,7 +45,7 @@ async function performMentionAnalysis(
   } catch (e) {
     logger.warn(
       { error: e },
-      "[PingPal] Could not fetch sender entity for prompt."
+      "[PingPal Telegram] Could not fetch sender entity for prompt."
     );
   }
 
@@ -57,7 +57,7 @@ async function performMentionAnalysis(
   } catch (e) {
     logger.warn(
       { error: e },
-      "[PingPal] Could not fetch room entity for prompt."
+      "[PingPal Telegram] Could not fetch room entity for prompt."
     );
   }
 
@@ -98,7 +98,7 @@ Message Text:
   try {
     logger.debug(
       { agentId: runtime.agentId, prompt: llmPrompt },
-      "[PingPal] Calling LLM for analysis..."
+      "[PingPal Telegram] Calling LLM for analysis..."
     );
     const rawResponse = await runtime.useModel(ModelType.OBJECT_SMALL, {
       prompt: llmPrompt,
@@ -116,7 +116,9 @@ Message Text:
       analysisResult = rawResponse as { important: boolean; reason: string };
     } else if (typeof rawResponse === "string") {
       // Fallback if it returned a string that might be JSON
-      logger.warn("[PingPal] LLM returned a string, attempting to parse JSON.");
+      logger.warn(
+        "[PingPal Telegram] LLM returned a string, attempting to parse JSON."
+      );
       const parsed = parseJSONObjectFromText(rawResponse);
       // Explicitly check if the parsed object matches the expected structure
       if (
@@ -147,12 +149,12 @@ Message Text:
 
     logger.info(
       { analysisResult, agentId: runtime.agentId },
-      "[PingPal] LLM Analysis successful."
+      "[PingPal Telegram] LLM Analysis successful."
     );
   } catch (llmError) {
     logger.error(
       { error: llmError, agentId: runtime.agentId },
-      "[PingPal] LLM analysis failed."
+      "[PingPal Telegram] LLM analysis failed."
     );
     // Default to not important on error to avoid spamming notifications
     analysisResult = { important: false, reason: "LLM analysis failed." };
@@ -163,7 +165,7 @@ Message Text:
   // --- Start: Log Processed Mention to Database ---
   logger.debug(
     { analysisResult, elizaMessageId },
-    "[PingPal] Analysis complete. Logging processing status."
+    "[PingPal Telegram] Analysis complete. Logging processing status."
   );
 
   const notifiedStatus = analysisResult?.important || false;
@@ -175,7 +177,7 @@ Message Text:
     agentId: runtime.agentId,
     createdAt: Date.now(),
     content: {
-      text: `[PingPal] Processed mention ${elizaMessageId}. Important: ${notifiedStatus}. Reason: ${analysisResult?.reason}`,
+      text: `[PingPal Telegram] Processed mention ${elizaMessageId}. Important: ${notifiedStatus}. Reason: ${analysisResult?.reason}`,
     },
     metadata: {
       type: "pingpal_processed_mention",
@@ -200,7 +202,7 @@ Message Text:
         agentId: runtime.agentId,
         roomId: message.roomId,
       },
-      "[PingPal] Logged processed mention status successfully."
+      "[PingPal Telegram] Logged processed mention status successfully."
     );
   } catch (dbError) {
     logger.error(
@@ -210,7 +212,7 @@ Message Text:
         agentId: runtime.agentId,
         roomId: message.roomId,
       },
-      "[PingPal] Failed to log processed mention status."
+      "[PingPal Telegram] Failed to log processed mention status."
     );
     // Depending on requirements, we might want to stop here if logging fails,
     // to prevent potential duplicate notifications later if the agent restarts.
@@ -221,7 +223,7 @@ Message Text:
   // Check if the analysis deemed the message important and trigger notification
   logger.debug(
     { analysisResult, elizaMessageId },
-    "[PingPal] Checking if notification is needed."
+    "[PingPal Telegram] Checking if notification is needed."
   );
   if (analysisResult && analysisResult.important === true) {
     logger.info(
@@ -230,7 +232,7 @@ Message Text:
         agentId: runtime.agentId,
         reason: analysisResult.reason,
       },
-      "[PingPal] Important mention identified, triggering notification."
+      "[PingPal Telegram] Important mention identified, triggering notification."
     );
     // Call the notification function, passing the original message and the reason
     await sendPrivateNotification(runtime, message, analysisResult.reason);
@@ -241,7 +243,7 @@ Message Text:
         agentId: runtime.agentId,
         important: analysisResult?.important,
       },
-      "[PingPal] Mention processed, notification not required."
+      "[PingPal Telegram] Mention processed, notification not required."
     );
   }
 }
@@ -257,7 +259,7 @@ export async function handleTelegramMessage(
       roomId: message.roomId,
       messageId: message.id, // This is Eliza's internal message ID
     },
-    `[PingPal] Received message: ${message.content?.text}`
+    `[PingPal Telegram] Received message: ${message.content?.text}`
   );
 
   // Retrieve the configured target username from settings
@@ -273,7 +275,7 @@ export async function handleTelegramMessage(
       agentId: runtime.agentId,
       targetUsername: targetUsername,
     },
-    `[PingPal] Target username configured as: ${targetUsername}`
+    `[PingPal Telegram] Target username configured as: ${targetUsername}`
   );
 
   // Retrieve the message text safely
@@ -304,7 +306,7 @@ export async function handleTelegramMessage(
         mentionDetected: mentionDetected,
         messageText: messageText,
       },
-      "[PingPal] Mention detected for target user."
+      "[PingPal Telegram] Mention detected for target user."
     );
 
     // Check if the elizaMessageId exists (it always should for a valid Memory object)
@@ -316,7 +318,7 @@ export async function handleTelegramMessage(
           roomId: message.roomId,
           messageObject: message, // Log the whole object for debugging
         },
-        "[PingPal] Could not find internal Eliza message ID (message.id). This is unexpected."
+        "[PingPal Telegram] Could not find internal Eliza message ID (message.id). This is unexpected."
       );
       return;
     }
@@ -344,7 +346,7 @@ export async function handleTelegramMessage(
       if (isDuplicate) {
         logger.info(
           { elizaMessageId, agentId: runtime.agentId, roomId: message.roomId },
-          "[PingPal] Duplicate mention detected based on processed logs (using Eliza ID). Skipping processing."
+          "[PingPal Telegram] Duplicate mention detected based on processed logs (using Eliza ID). Skipping processing."
         );
         return; // Stop processing if already handled
       }
@@ -352,7 +354,7 @@ export async function handleTelegramMessage(
       // If check passes (no duplicate found), log that this is a new mention
       logger.info(
         { elizaMessageId, agentId: runtime.agentId, roomId: message.roomId },
-        "[PingPal] New mention detected (using Eliza ID). Proceeding to analysis."
+        "[PingPal Telegram] New mention detected (using Eliza ID). Proceeding to analysis."
       );
 
       // Call the analysis function for new mentions, passing the original message object
@@ -365,7 +367,7 @@ export async function handleTelegramMessage(
           agentId: runtime.agentId,
           roomId: message.roomId,
         },
-        "[PingPal] Error checking for duplicate mentions (using Eliza ID)."
+        "[PingPal Telegram] Error checking for duplicate mentions (using Eliza ID)."
       );
       // Stop on DB error for MVP
       return;
@@ -378,7 +380,7 @@ export async function handleTelegramMessage(
         messageId: message.id,
         messageText: messageText.substring(0, 50) + "...", // Log snippet for context
       },
-      "[PingPal] Message received, but no mention of target user found."
+      "[PingPal Telegram] Message received, but no mention of target user found."
     );
   }
 }

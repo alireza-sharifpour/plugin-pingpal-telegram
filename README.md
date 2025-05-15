@@ -66,7 +66,20 @@ bun link pingpal-telegram
 `
   If you've installed it as a package, ensure it's listed in your main project's `package.json` and installed.
 
-**4. Configure Your Agent's Character (`src/index.ts` in your main ElizaOS project)**
+**4. Install Required Peer Plugins in Your Main ElizaOS Project**
+
+Before configuring your agent, ensure that the necessary peer plugins, `@elizaos/plugin-telegram` and `@elizaos/plugin-sql`, are installed in your main ElizaOS project. These are essential for the `pingpal-telegram` plugin to function.
+
+Navigate to your main ElizaOS project's root directory and run:
+
+```bash
+# In your main ElizaOS project directory
+bun add @elizaos/plugin-telegram @elizaos/plugin-sql
+```
+
+This command will add them to your project's `package.json` and install them.
+
+**5. Configure Your Agent's Character (`src/index.ts` in your main ElizaOS project)**
 
 Modify your agent's character definition to include this plugin and its dependencies, along with necessary settings:
 
@@ -139,7 +152,7 @@ const project: Project = {
 export default project;
 ```
 
-**5. Create/Update Environment Variables (`.env` file)**
+**6. Create/Update Environment Variables (`.env` file)**
 
 In the root directory of your main ElizaOS project, create or update the `.env` file:
 
@@ -153,74 +166,14 @@ PINGPAL_TARGET_TELEGRAM_USERNAME=TELEGRAM_USERNAME_HERE
 
 ElizaOS will automatically load these.
 
-**6. Crucial: Target User Interaction with Bot**
+**7. Crucial: Target User Interaction with Bot**
 
 The Telegram user specified by `pingpal.targetTelegramUserId` **MUST** initiate a conversation with your Telegram bot (e.g., send `/start` or any message) _at least once_ after the bot is running. This is a Telegram API requirement that allows the bot to send private messages to that user.
 
-**7. Install Dependencies in Your Main ElizaOS Project**
+**8. Install Dependencies in Your Main ElizaOS Project**
 
 Navigate to your main ElizaOS project's root directory and run:
 
-```bash
-bun install
 ```
 
-## Running Your ElizaOS Agent
-
-Once everything is configured:
-
-1.  Ensure your Telegram bot (represented by `TELEGRAM_BOT_TOKEN`) is added as a member to the Telegram groups you want it to monitor.
-2.  Start your ElizaOS project from its root directory:
-    ```bash
-    npx elizaos start
-    ```
-    Or, if you have a start script in your project's `package.json`:
-    ```bash
-    bun start
-    ```
-3.  The agent will connect to Telegram. When the `targetUsername` is mentioned in a monitored group, the plugin will analyze the message and send a private notification to `targetUserId` if the message is deemed important.
-
-## Development
-
-This section is for those contributing to the `pingpal-telegram` plugin itself.
-
-```bash
-# Ensure dependencies for the plugin are installed
-bun install
-
-# Start development with hot-reloading
-npm run dev
-
-# Build the plugin
-npm run build
-
-# Test the plugin
-npm run test
 ```
-
-## Configuration
-
-The `agentConfig` section in `package.json` defines the parameters your plugin requires:
-
-```json
-"agentConfig": {
-  "pluginType": "elizaos:plugin:1.0.0",
-  "pluginParameters": {
-    "API_KEY": {
-      "type": "string",
-      "description": "API key for the service"
-    }
-  }
-}
-```
-
-Customize this section to match your plugin's requirements.
-
-## Documentation
-
-Provide clear documentation about:
-
-- What your plugin does
-- How to use it
-- Required API keys or credentials
-- Example usage

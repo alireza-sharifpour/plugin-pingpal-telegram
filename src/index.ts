@@ -43,7 +43,7 @@ const pingPalTelegramPlugin: Plugin = {
   init: async (config: Record<string, string>, runtime: IAgentRuntime) => {
     console.log("Initializing PingPal Telegram Plugin...");
     runtime.registerEvent(EventType.MESSAGE_RECEIVED, handleTelegramMessage);
-    console.log("[PingPal] Registered MESSAGE_RECEIVED handler.");
+    console.log("[PingPal Telegram] Registered MESSAGE_RECEIVED handler.");
   },
   actions: [
     /* Actions will be added here */

@@ -31,7 +31,7 @@ export async function sendPrivateNotification(
       originalElizaMessageId: elizaMessageId,
       reason: reason,
     },
-    "[PingPal] Preparing to send private notification..."
+    "[PingPal Telegram] Preparing to send private notification..."
   );
 
   try {
@@ -44,7 +44,7 @@ export async function sendPrivateNotification(
           agentId: runtime.agentId,
           originalElizaMessageId: elizaMessageId,
         },
-        "[PingPal] Telegram service not found. Cannot send notification."
+        "[PingPal Telegram] Telegram service not found. Cannot send notification."
       );
       return;
     }
@@ -59,7 +59,7 @@ export async function sendPrivateNotification(
           agentId: runtime.agentId,
           originalElizaMessageId: elizaMessageId,
         },
-        "[PingPal] Target User ID not configured. Cannot send notification."
+        "[PingPal Telegram] Target User ID not configured. Cannot send notification."
       );
       return;
     }
@@ -82,7 +82,7 @@ export async function sendPrivateNotification(
           agentId: runtime.agentId,
           originalElizaMessageId: elizaMessageId,
         },
-        "[PingPal] Could not fetch sender entity for notification."
+        "[PingPal Telegram] Could not fetch sender entity for notification."
       );
       senderUsername = "_Unknown User_";
     }
@@ -106,7 +106,7 @@ export async function sendPrivateNotification(
     } catch (e) {
       logger.warn(
         { error: e, agentId: runtime.agentId, roomId: originalMessage.roomId },
-        "[PingPal] Could not fetch room entity for notification context."
+        "[PingPal Telegram] Could not fetch room entity for notification context."
       );
       groupName = "_Fetch Error_";
     }
@@ -120,7 +120,7 @@ export async function sendPrivateNotification(
     ) {
       logger.info(
         { channelId: telegramChannelId },
-        "[PingPal] Room name missing from DB, attempting direct fetch..."
+        "[PingPal Telegram] Room name missing from DB, attempting direct fetch..."
       );
       try {
         const chatIdNum = parseInt(telegramChannelId, 10);
@@ -137,23 +137,25 @@ export async function sendPrivateNotification(
             // try {
             //   await runtime.updateRoom({ id: originalMessage.roomId, name: chatInfo.title });
             // } catch (updateError) {
-            //   logger.warn({error: updateError}, "[PingPal] Failed to update room name in DB after fetching.")
+            //   logger.warn({error: updateError}, "[PingPal Telegram] Failed to update room name in DB after fetching.")
             // }
           } else {
-            logger.warn("[PingPal] Fetched chat info did not contain a title.");
+            logger.warn(
+              "[PingPal Telegram] Fetched chat info did not contain a title."
+            );
             groupName = "_Unknown Group_";
           }
         } else {
           logger.warn(
             { channelId: telegramChannelId },
-            "[PingPal] Room channelId is not a valid number."
+            "[PingPal Telegram] Room channelId is not a valid number."
           );
           groupName = "_Invalid ChannelID_";
         }
       } catch (fetchError) {
         logger.warn(
           { error: fetchError, channelId: telegramChannelId },
-          "[PingPal] Failed to fetch chat info directly from Telegram."
+          "[PingPal Telegram] Failed to fetch chat info directly from Telegram."
         );
         groupName = "_Fetch Failed_";
       }
@@ -176,7 +178,7 @@ export async function sendPrivateNotification(
         originalElizaMessageId: elizaMessageId,
         messageLength: notificationText.length,
       },
-      "[PingPal] Attempting to send notification via Telegram service."
+      "[PingPal Telegram] Attempting to send notification via Telegram service."
     );
 
     if (
@@ -203,7 +205,7 @@ export async function sendPrivateNotification(
             ? Object.keys(telegramService)
             : "null",
         },
-        "[PingPal] Could not find nested bot.telegram.sendMessage function on Telegram service instance."
+        "[PingPal Telegram] Could not find nested bot.telegram.sendMessage function on Telegram service instance."
       );
       throw new Error("Telegram service structure unexpected.");
     }
@@ -214,7 +216,7 @@ export async function sendPrivateNotification(
         targetUserId: targetUserId,
         originalElizaMessageId: elizaMessageId,
       },
-      "[PingPal] Private notification sent successfully."
+      "[PingPal Telegram] Private notification sent successfully."
     );
   } catch (sendError) {
     console.error("Send Error", sendError); // Use console.error for actual errors

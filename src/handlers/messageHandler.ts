@@ -29,7 +29,7 @@ async function performMentionAnalysis(
 
   const messageText = message.content?.text || "";
   const targetUsername =
-    runtime.getSetting("pingpal.targetUsername") ||
+    runtime.getSetting("pingpal.targetTelegramUserName") ||
     process.env.PINGPAL_TARGET_TELEGRAM_USERNAME; // Reuse logic from handler
 
   // Optional: Enhance prompt with sender/group context
@@ -190,7 +190,7 @@ Message Text:
   try {
     const newMemory = await runtime.createMemory(
       processedMentionMemory as Memory,
-      "pingpal_processed_mentions"
+      "pingpal_telegram_processed"
     );
     console.log("newMemory", newMemory);
     logger.info(
@@ -261,7 +261,9 @@ export async function handleTelegramMessage(
   );
 
   // Retrieve the configured target username from settings
-  const targetUsernameSetting = runtime.getSetting("pingpal.targetUsername");
+  const targetUsernameSetting = runtime.getSetting(
+    "pingpal.targetTelegramUserName"
+  );
   // Using hardcoded value for now based on previous context
   const targetUsername =
     targetUsernameSetting || process.env.PINGPAL_TARGET_TELEGRAM_USERNAME;
@@ -323,7 +325,7 @@ export async function handleTelegramMessage(
     try {
       // Fetch recent processed mention logs for this room/agent
       const existing = await runtime.getMemories({
-        tableName: "pingpal_processed_mentions", // The table where *we* store processing logs
+        tableName: "pingpal_telegram_processed", // The table where *we* store processing logs
         agentId: runtime.agentId, // Ensure we only check logs for this agent
         roomId: message.roomId, // Scope check to the room
         count: 50, // Fetch a reasonable number of recent logs to filter manually

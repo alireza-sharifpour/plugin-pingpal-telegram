@@ -16,7 +16,7 @@ The `pingpal-telegram` plugin is a component for [ElizaOS](https://elizaos.githu
 1.  The plugin, integrated into an ElizaOS agent, uses `@elizaos/plugin-telegram` to receive messages from Telegram groups.
 2.  When a message is received (`EventType.MESSAGE_RECEIVED`), the `handleTelegramMessage` handler checks if the configured `targetUsername` (e.g., `alireza7612`) is mentioned.
 3.  If a new, unprocessed mention is detected, the `performMentionAnalysis` function is invoked.
-    - Deduplication is handled by logging processed message IDs to the ElizaOS database (PGLite via `@elizaos/plugin-sql`) using `runtime.createMemory` and checking with `runtime.getMemories` against a custom table type (`pingpal_processed_mentions`).
+    - Deduplication is handled by logging processed message IDs to the ElizaOS database (PGLite via `@elizaos/plugin-sql`) using `runtime.createMemory` and checking with `runtime.getMemories` against a custom table type (`pingpal_telegram_processed`).
 4.  An LLM is called via `runtime.useModel` with a prompt asking it to classify the message's importance for the target user and provide a reason, expecting a JSON response like `{"important": boolean, "reason": string}`.
 5.  If the LLM deems the message important, the `sendPrivateNotification` function formats a notification.
 6.  The notification (including the original message, sender, group, and LLM's reason) is sent as a private Telegram message to the `targetUserId` using the Telegram service provided by `@elizaos/plugin-telegram`.
@@ -127,7 +127,7 @@ export const projectAgent: ProjectAgent = {
       character.name
     );
     // You can access plugin settings here for validation if needed:
-    // const targetUser = runtime.getSetting('pingpal.targetUsername');
+    // const targetUser = runtime.getSetting('pingpal.targetTelegramUserName');
     // console.log('PingPal will monitor for:', targetUser);
   },
 };
@@ -155,7 +155,7 @@ ElizaOS will automatically load these.
 
 **6. Crucial: Target User Interaction with Bot**
 
-The Telegram user specified by `pingpal.targetUserId` **MUST** initiate a conversation with your Telegram bot (e.g., send `/start` or any message) _at least once_ after the bot is running. This is a Telegram API requirement that allows the bot to send private messages to that user.
+The Telegram user specified by `pingpal.targetTelegramUserId` **MUST** initiate a conversation with your Telegram bot (e.g., send `/start` or any message) _at least once_ after the bot is running. This is a Telegram API requirement that allows the bot to send private messages to that user.
 
 **7. Install Dependencies in Your Main ElizaOS Project**
 

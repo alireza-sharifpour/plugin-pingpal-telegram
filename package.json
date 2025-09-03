@@ -1,8 +1,7 @@
 {
-  "name": "@elizaos/plugin-pingpal-telegram",
+  "name": "plugin-pingpal-telegram",
   "description": "Plugin starter for elizaOS",
   "version": "1.0.0-beta.33",
-  "private": true,
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.js",
